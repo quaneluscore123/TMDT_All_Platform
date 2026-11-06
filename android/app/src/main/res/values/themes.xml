@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Giao diện thật vẽ bằng Compose (ui/theme); theme XML chỉ lo cửa sổ khởi động. -->
+    <style name="Theme.SocialShop" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
+</resources>

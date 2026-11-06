@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Túi mua sắm đơn giản, nằm trong vùng an toàn 66dp của adaptive icon 108dp -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- thân túi -->
+    <path
+        android:fillColor="#FFF97316"
+        android:pathData="M34,44 L74,44 L71,78 Q70.5,82 66.5,82 L41.5,82 Q37.5,82 37,78 Z" />
+    <!-- quai túi -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M44,50 L44,40 Q44,28 54,28 Q64,28 64,40 L64,50" />
+</vector>
