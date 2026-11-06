@@ -1,6 +1,6 @@
 # SocialShop — DK Social Commerce
 
-Website thương mại điện tử tích hợp mạng xã hội (Laravel 12, Livewire 4, Tailwind 4, MySQL 8).
+Website thương mại điện tử tích hợp mạng xã hội (Laravel 12, Livewire 4, Tailwind 4, MySQL 8) kèm **app Android** native (Kotlin, Jetpack Compose) dùng chung backend qua Mobile API — xem [android/README.md](android/README.md).
 
 ## Chức năng chính
 
@@ -105,7 +105,23 @@ php artisan test                 # SQLite in-memory, không cần MySQL
 vendor/bin/pint --test           # kiểm tra code style
 ```
 
-CI (GitHub Actions, `.github/workflows/tests.yml`) chạy Pint và toàn bộ test trên PHP 8.2 và 8.4, cùng test của microservice (`cd services/ai-service && npm test`).
+CI (GitHub Actions, `.github/workflows/tests.yml`) chạy Pint và toàn bộ test trên PHP 8.2 và 8.4, cùng test của microservice (`cd services/ai-service && npm test`). `.github/workflows/android.yml` build APK debug + release mỗi khi thư mục `android/` thay đổi.
+
+## Mobile API & app Android
+
+Backend mở REST API tại `/api/v1` (Laravel Sanctum, gửi `Authorization: Bearer <token>` và `Accept: application/json`), dùng chung nghiệp vụ với website (giỏ hàng, báo giá VAT/phí ship, mã giảm giá, VNPay, hủy đơn...):
+
+| Nhóm | Endpoint |
+|---|---|
+| Công khai | `GET home`, `categories`, `products` (search, category, sort, min/max_price, page), `products/{slug}`, `products/{slug}/reviews`, `shipping-config` |
+| Xác thực | `POST auth/register`, `auth/login` (trả token), `auth/forgot-password`, `auth/logout` |
+| Tài khoản | `GET/PUT me`, `PUT me/password` |
+| Giỏ hàng | `GET cart`, `POST cart/items`, `PATCH/DELETE cart/items/{id}`, `DELETE cart` |
+| Thanh toán | `POST coupons/apply`, `POST checkout/quote`, `POST orders` (kèm `expected_total`; giá đổi → 409) |
+| Đơn hàng | `GET orders`, `GET orders/{id}`, `POST orders/{id}/cancel` |
+| Khác | `GET wishlist`, `POST wishlist/{productId}/toggle`, `POST products/{slug}/reviews` |
+
+Test API: `php artisan test tests/Feature/Api`. Hướng dẫn chạy app: [android/README.md](android/README.md).
 
 ## Quảng cáo & đo lường
 
@@ -117,11 +133,14 @@ CI (GitHub Actions, `.github/workflows/tests.yml`) chạy Pint và toàn bộ te
 ## Cấu trúc chính
 
 ```
-app/Http/Controllers      # controller khách hàng + Admin/ + Auth/
-app/Services              # nghiệp vụ: Order + Pricing (VAT, ship), Payment (VNPay), Cart, Coupon, Referral, Chatbot, Analytics, Audit
+app/Http/Controllers      # controller khách hàng + Admin/ + Auth/ + Api/V1 (Mobile API)
+app/Http/Resources/Api    # định dạng JSON trả cho app
+app/Services              # nghiệp vụ: Catalog (lọc/tìm sản phẩm), Order + Pricing (VAT, ship), Payment (VNPay), Cart, Coupon, Referral, Chatbot, Analytics, Audit
+routes/api.php            # Mobile API v1
 app/Console/Commands      # orders:expire-unpaid, db:backup
 database/seeders          # dữ liệu demo
 resources/views           # Blade + Livewire
 tests/Feature             # test tính năng
 services/ai-service       # microservice chatbot AI (Node.js, Dockerfile, test riêng)
+android/                  # app Android (Kotlin, Jetpack Compose)
 ```
