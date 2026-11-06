@@ -59,10 +59,10 @@ class OrderService extends BaseService
             // 2. Kiểm tra tồn kho & tính subtotal (lấy giá từ DB thực, không tin giỏ hàng)
             [$itemsToCreate, $subtotal] = $this->priceCartLines($cart, lock: true);
 
-            // 3. Xử lý Coupon (nếu có trong session)
+            // 3. Xử lý Coupon: web giữ mã trong session, app di động (API không session) truyền coupon_code
             $discount = 0;
             $coupon = null;
-            $couponCode = session('coupon_code');
+            $couponCode = array_key_exists('coupon_code', $data) ? $data['coupon_code'] : session('coupon_code');
 
             if ($couponCode) {
                 try {
@@ -201,7 +201,7 @@ class OrderService extends BaseService
      *
      * @throws OrderException Khi giỏ trống, hết hàng hoặc thiếu size/màu.
      */
-    public function quote(User $user, ?string $province): array
+    public function quote(User $user, ?string $province, ?string $couponCode = null): array
     {
         $cart = $this->cartService->getCartWithItems($user->id);
 
@@ -213,7 +213,8 @@ class OrderService extends BaseService
 
         $discount = 0;
         $couponError = null;
-        if ($couponCode = session('coupon_code')) {
+        $couponCode ??= session('coupon_code');
+        if ($couponCode) {
             try {
                 $discount = $this->couponService->validateAndCalculate($couponCode, $subtotal, $user)['discount'];
             } catch (CouponException $e) {

@@ -58,6 +58,11 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function wishlistItems()
+    {
+        return $this->hasMany(WishlistItem::class);
+    }
+
     public function wishlistedBy()
     {
         return User::whereHas('wishlist.items', function ($q) {

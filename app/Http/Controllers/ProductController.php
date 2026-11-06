@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Product;
 use App\Services\Analytics\AnalyticsService;
+use App\Services\Catalog\ProductFilter;
 use App\Services\RecommendationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -16,88 +17,10 @@ class ProductController extends Controller
         $query = Product::with('category')->withCardData()->where('status', 'active');
 
         $search = $request->input('search') ?: $request->input('q');
-
-        if ($search !== null && $search !== '') {
-            $trimmed = trim($search);
-            $variations = array_unique(array_filter([
-                $trimmed,
-                mb_strtolower($trimmed, 'UTF-8'),
-                mb_strtoupper($trimmed, 'UTF-8'),
-                mb_convert_case($trimmed, MB_CASE_TITLE, 'UTF-8'),
-            ]));
-            $slugTerm = Str::slug($trimmed);
-
-            $query->where(function ($q) use ($variations, $slugTerm, $trimmed) {
-                // 1. Khớp tên sản phẩm (hỗ trợ có dấu, không dấu, chữ hoa, chữ thường)
-                foreach ($variations as $var) {
-                    $q->orWhereLike('name', "%{$var}%");
-                }
-
-                // 2. Khớp mã định danh slug (ao-polo-nam, ao-thun-unisex...)
-                if (! empty($slugTerm)) {
-                    $q->orWhere('slug', 'like', "{$slugTerm}-%")
-                        ->orWhere('slug', 'like', "%-{$slugTerm}-%")
-                        ->orWhere('slug', 'like', "%-{$slugTerm}")
-                        ->orWhere('slug', '=', $slugTerm);
-                }
-
-                // 3. Khớp tên hoặc slug của Danh mục (Áo nam, Áo nữ, Đồng hồ, Giày dép...)
-                $q->orWhereHas('category', function ($cq) use ($variations, $slugTerm) {
-                    $cq->where(function ($sub) use ($variations, $slugTerm) {
-                        foreach ($variations as $var) {
-                            $sub->orWhereLike('name', "%{$var}%");
-                        }
-                        if (! empty($slugTerm)) {
-                            $sub->orWhere('slug', 'like', "{$slugTerm}-%")
-                                ->orWhere('slug', 'like', "%-{$slugTerm}-%")
-                                ->orWhere('slug', 'like', "%-{$slugTerm}")
-                                ->orWhere('slug', '=', $slugTerm);
-                        }
-                    });
-                });
-
-                // 4. Khớp mô tả chi tiết: từ khóa ngắn (<= 3 ký tự như "áo", "ao") phải khớp trọn vẹn từ
-                // tránh hiện tượng "áo" bị khớp nhầm vào chữ "thông báo" trong mô tả đồng hồ
-                if (mb_strlen($trimmed) <= 3) {
-                    foreach ($variations as $var) {
-                        $q->orWhereLike('description', "{$var} %")
-                            ->orWhereLike('description', "% {$var} %")
-                            ->orWhereLike('description', "% {$var},%")
-                            ->orWhereLike('description', "% {$var}.%");
-                    }
-                } else {
-                    foreach ($variations as $var) {
-                        $q->orWhereLike('description', "%{$var}%");
-                    }
-                }
-            });
-        }
-
-        if ($request->filled('category')) {
-            $category = Category::find($request->category);
-
-            if ($category && $category->parent_id === null) {
-                $categoryIds = Category::query()
-                    ->where('status', 'active')
-                    ->where(function ($q) use ($category) {
-                        $q->where('id', $category->id)
-                            ->orWhere('parent_id', $category->id);
-                    })
-                    ->pluck('id');
-
-                $query->whereIn('category_id', $categoryIds);
-            } else {
-                $query->where('category_id', $request->category);
-            }
-        }
-
-        if ($request->filled('min_price')) {
-            $query->where('price', '>=', $request->min_price);
-        }
-
-        if ($request->filled('max_price')) {
-            $query->where('price', '<=', $request->max_price);
-        }
+        $filter = app(ProductFilter::class);
+        $filter->applySearch($query, $search);
+        $filter->applyCategory($query, $request->input('category'));
+        $filter->applyPriceRange($query, $request->input('min_price'), $request->input('max_price'));
 
         if ($request->filled('brand')) {
             $query->where('brand', $request->brand);
@@ -105,7 +28,7 @@ class ProductController extends Controller
 
         // Nút "Sản phẩm nổi bật" (?featured=1) → mặc định sắp theo độ phổ biến
         $sortBy = $request->get('sort', $request->boolean('featured') ? 'popular' : 'latest');
-        $this->applySort($query, $sortBy);
+        $filter->applySort($query, $sortBy);
 
         $products = $query->paginate(12)->withQueryString();
         $categories = Category::where('status', 'active')->get();
@@ -128,21 +51,15 @@ class ProductController extends Controller
             abort(404);
         }
 
-        $categoryIds = $this->categoryIdsWithDescendants($category);
+        $filter = app(ProductFilter::class);
+        $categoryIds = $filter->categoryIdsWithDescendants($category);
 
         $query = Product::with('category')->withCardData()
             ->where('status', 'active')
             ->whereIn('category_id', $categoryIds);
 
-        if ($request->filled('min_price')) {
-            $query->where('price', '>=', $request->min_price);
-        }
-
-        if ($request->filled('max_price')) {
-            $query->where('price', '<=', $request->max_price);
-        }
-
-        $this->applySort($query, $request->get('sort', 'latest'));
+        $filter->applyPriceRange($query, $request->input('min_price'), $request->input('max_price'));
+        $filter->applySort($query, $request->get('sort', 'latest'));
 
         $products = $query->paginate(12)->withQueryString();
 
@@ -258,59 +175,5 @@ class ProductController extends Controller
             'product', 'soldCount', 'relatedProducts', 'boughtTogether', 'reviews', 'canReview', 'hasReviewed',
             'metaTitle', 'metaDescription', 'metaImage', 'jsonLd', 'hasVariants'
         ));
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    private function categoryIdsWithDescendants(Category $category): array
-    {
-        $ids = [(int) $category->id];
-        $queue = [(int) $category->id];
-
-        while ($queue) {
-            $children = Category::query()
-                ->where('status', 'active')
-                ->whereIn('parent_id', $queue)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
-
-            $queue = array_values(array_diff($children, $ids));
-            $ids = array_merge($ids, $queue);
-        }
-
-        return $ids;
-    }
-
-    private function applySort($query, string $sortBy): void
-    {
-        switch ($sortBy) {
-            case 'price_asc':
-                $query->orderBy('price', 'asc');
-                break;
-            case 'price_desc':
-                $query->orderBy('price', 'desc');
-                break;
-            case 'name':
-                $query->orderBy('name', 'asc');
-                break;
-            case 'popular':
-                $query->withSum(['orderItems as sold_count' => fn ($q) => $q->whereHas('order', fn ($o) => $o->where('status', '!=', 'cancelled'))], 'quantity')
-                    ->orderByDesc('sold_count')->orderByDesc('views_count');
-                break;
-            case 'best_selling':
-                $query->withSum(['orderItems as sold_count' => fn ($q) => $q->whereHas('order', fn ($o) => $o->where('status', '!=', 'cancelled'))], 'quantity')
-                    ->orderByDesc('sold_count');
-                break;
-            case 'top_rated':
-                $query->orderByDesc('approved_rating_avg')->orderByDesc('reviews_count');
-                break;
-            case 'most_viewed':
-                $query->orderByDesc('views_count');
-                break;
-            default:
-                $query->latest();
-        }
     }
 }
