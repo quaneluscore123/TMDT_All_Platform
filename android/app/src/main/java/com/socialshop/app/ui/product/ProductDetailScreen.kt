@@ -1,5 +1,10 @@
 package com.socialshop.app.ui.product
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,7 +57,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.socialshop.app.data.ShopRepository
 import com.socialshop.app.data.remote.ProductDetail
 import com.socialshop.app.data.remote.Review
@@ -67,14 +71,22 @@ import com.socialshop.app.ui.components.StateContent
 import com.socialshop.app.ui.components.UiState
 import com.socialshop.app.ui.components.toUiState
 import com.socialshop.app.ui.navigation.LocalSnackbar
-import com.socialshop.app.ui.navigation.repository
 import com.socialshop.app.ui.theme.SaleRed
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class ProductDetailViewModel(private val repo: ShopRepository, private val slug: String) : ViewModel() {
+@HiltViewModel(assistedFactory = ProductDetailViewModel.Factory::class)
+class ProductDetailViewModel @AssistedInject constructor(
+    private val repo: ShopRepository,
+    @Assisted private val slug: String,
+) : ViewModel() {
+    @AssistedFactory
+    interface Factory {
+        fun create(slug: String): ProductDetailViewModel
+    }
+
     private val _state = MutableStateFlow<UiState<ProductDetail>>(UiState.Loading)
     val state = _state.asStateFlow()
     private val _reviews = MutableStateFlow<List<Review>>(emptyList())
@@ -110,8 +122,7 @@ fun ProductDetailScreen(
     onCheckout: () -> Unit,
     onReviews: (name: String, canReview: Boolean) -> Unit,
 ) {
-    val repo = repository()
-    val vm: ProductDetailViewModel = viewModel(key = "product-$slug") { ProductDetailViewModel(repo, slug) }
+    val vm = hiltViewModel<ProductDetailViewModel, ProductDetailViewModel.Factory>(key = "product-$slug") { it.create(slug) }
     val state by vm.state.collectAsStateWithLifecycle()
     val reviews by vm.reviews.collectAsStateWithLifecycle()
     val snackbar = LocalSnackbar.current

@@ -1,5 +1,8 @@
 package com.socialshop.app.ui.home
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.socialshop.app.data.ShopRepository
 import com.socialshop.app.data.remote.Category
 import com.socialshop.app.data.remote.HomeResponse
@@ -57,7 +59,6 @@ import com.socialshop.app.ui.components.ProductImage
 import com.socialshop.app.ui.components.StateContent
 import com.socialshop.app.ui.components.UiState
 import com.socialshop.app.ui.components.toUiState
-import com.socialshop.app.ui.navigation.repository
 import com.socialshop.app.ui.theme.Orange500
 import com.socialshop.app.ui.theme.SaleRed
 import kotlinx.coroutines.delay
@@ -67,7 +68,8 @@ import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.OffsetDateTime
 
-class HomeViewModel(private val repo: ShopRepository) : ViewModel() {
+@HiltViewModel
+class HomeViewModel @Inject constructor(private val repo: ShopRepository) : ViewModel() {
     private val _state = MutableStateFlow<UiState<HomeResponse>>(UiState.Loading)
     val state = _state.asStateFlow()
     private val _refreshing = MutableStateFlow(false)
@@ -89,8 +91,7 @@ fun HomeScreen(
     onCategory: (Long, String) -> Unit,
     onSearch: (String) -> Unit,
 ) {
-    val repo = repository()
-    val vm: HomeViewModel = viewModel { HomeViewModel(repo) }
+    val vm: HomeViewModel = hiltViewModel()
     val state by vm.state.collectAsStateWithLifecycle()
     val refreshing by vm.refreshing.collectAsStateWithLifecycle()
 

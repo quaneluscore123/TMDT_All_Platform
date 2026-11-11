@@ -1,5 +1,8 @@
 package com.socialshop.app.ui.orders
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.socialshop.app.core.toDisplayDate
 import com.socialshop.app.core.toVnd
 import com.socialshop.app.data.ShopRepository
@@ -36,14 +38,14 @@ import com.socialshop.app.ui.components.MessageBox
 import com.socialshop.app.ui.components.StateContent
 import com.socialshop.app.ui.components.UiState
 import com.socialshop.app.ui.components.toUiState
-import com.socialshop.app.ui.navigation.repository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class OrdersPage(val orders: List<Order>, val page: Int, val lastPage: Int)
 
-class OrdersViewModel(private val repo: ShopRepository) : ViewModel() {
+@HiltViewModel
+class OrdersViewModel @Inject constructor(private val repo: ShopRepository) : ViewModel() {
     private val _state = MutableStateFlow<UiState<OrdersPage>>(UiState.Loading)
     val state = _state.asStateFlow()
 
@@ -65,8 +67,7 @@ class OrdersViewModel(private val repo: ShopRepository) : ViewModel() {
 
 @Composable
 fun OrdersScreen(onBack: () -> Unit, onOrder: (Long) -> Unit) {
-    val repo = repository()
-    val vm: OrdersViewModel = viewModel { OrdersViewModel(repo) }
+    val vm: OrdersViewModel = hiltViewModel()
     val state by vm.state.collectAsStateWithLifecycle()
 
     Scaffold(topBar = { BackTopBar("Đơn hàng của tôi", onBack) }) { padding ->

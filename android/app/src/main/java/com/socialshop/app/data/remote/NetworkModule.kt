@@ -13,6 +13,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
 
+/** Cấu hình mạng dùng chung; Hilt (di/AppModule) gọi các hàm này để dựng singleton. */
 object NetworkModule {
 
     @OptIn(ExperimentalSerializationApi::class)
@@ -28,7 +29,7 @@ object NetworkModule {
     /** Gốc API, vd. http://10.0.2.2:8000/api/v1/ */
     val apiBaseUrl: String = BuildConfig.BASE_URL + "api/v1/"
 
-    fun createApi(tokenStore: TokenStore): ApiService {
+    fun createOkHttp(tokenStore: TokenStore): OkHttpClient {
         val authInterceptor = Interceptor { chain ->
             val token = tokenStore.currentToken
             val request = chain.request().newBuilder()
@@ -43,22 +44,22 @@ object NetworkModule {
             response
         }
 
-        val client = OkHttpClient.Builder()
+        return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .apply {
                 if (BuildConfig.DEBUG) {
+                    // BASIC không đọc body → không làm hỏng luồng SSE của chatbot
                     addInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BASIC))
                 }
             }
             .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(45, TimeUnit.SECONDS)
             .build()
-
-        return Retrofit.Builder()
-            .baseUrl(apiBaseUrl)
-            .client(client)
-            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-            .build()
-            .create(ApiService::class.java)
     }
+
+    fun createRetrofit(client: OkHttpClient): Retrofit = Retrofit.Builder()
+        .baseUrl(apiBaseUrl)
+        .client(client)
+        .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+        .build()
 }

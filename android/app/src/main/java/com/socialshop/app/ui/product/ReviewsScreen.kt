@@ -1,5 +1,10 @@
 package com.socialshop.app.ui.product
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.socialshop.app.core.toDisplayDate
 import com.socialshop.app.data.ShopRepository
 import com.socialshop.app.data.remote.Review
@@ -45,13 +49,21 @@ import com.socialshop.app.ui.components.StateContent
 import com.socialshop.app.ui.components.UiState
 import com.socialshop.app.ui.components.toUiState
 import com.socialshop.app.ui.navigation.LocalSnackbar
-import com.socialshop.app.ui.navigation.repository
 import com.socialshop.app.ui.theme.StarYellow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class ReviewsViewModel(private val repo: ShopRepository, private val slug: String) : ViewModel() {
+@HiltViewModel(assistedFactory = ReviewsViewModel.Factory::class)
+class ReviewsViewModel @AssistedInject constructor(
+    private val repo: ShopRepository,
+    @Assisted private val slug: String,
+) : ViewModel() {
+    @AssistedFactory
+    interface Factory {
+        fun create(slug: String): ReviewsViewModel
+    }
+
     private val _state = MutableStateFlow<UiState<List<Review>>>(UiState.Loading)
     val state = _state.asStateFlow()
 
@@ -66,8 +78,7 @@ class ReviewsViewModel(private val repo: ShopRepository, private val slug: Strin
 
 @Composable
 fun ReviewsScreen(slug: String, productName: String, canReview: Boolean, onBack: () -> Unit) {
-    val repo = repository()
-    val vm: ReviewsViewModel = viewModel(key = "reviews-$slug") { ReviewsViewModel(repo, slug) }
+    val vm = hiltViewModel<ReviewsViewModel, ReviewsViewModel.Factory>(key = "reviews-$slug") { it.create(slug) }
     val state by vm.state.collectAsStateWithLifecycle()
     var submitted by rememberSaveable { mutableStateOf(false) }
 

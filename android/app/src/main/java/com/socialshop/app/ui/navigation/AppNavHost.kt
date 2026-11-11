@@ -36,7 +36,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.socialshop.app.ShopApp
 import com.socialshop.app.data.ShopRepository
 import com.socialshop.app.ui.account.AccountScreen
 import com.socialshop.app.ui.account.ChangePasswordScreen
@@ -54,13 +53,18 @@ import com.socialshop.app.ui.product.ProductDetailScreen
 import com.socialshop.app.ui.product.ReviewsScreen
 import com.socialshop.app.ui.products.ProductListScreen
 import com.socialshop.app.ui.wishlist.WishlistScreen
+import com.socialshop.app.di.RepositoryEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import kotlin.reflect.KClass
 
 /** Snackbar dùng chung để mọi màn hình báo kết quả thao tác. */
 val LocalSnackbar = staticCompositionLocalOf<SnackbarHostState> { error("SnackbarHostState chưa được cung cấp") }
 
 @Composable
-fun repository(): ShopRepository = (LocalContext.current.applicationContext as ShopApp).repository
+fun repository(): ShopRepository {
+    val context = LocalContext.current.applicationContext
+    return remember(context) { EntryPointAccessors.fromApplication(context, RepositoryEntryPoint::class.java).shopRepository() }
+}
 
 private data class TopTab(val route: Any, val routeClass: KClass<*>, val label: String, val icon: ImageVector)
 
