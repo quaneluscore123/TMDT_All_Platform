@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\CouponRequest;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
 use Illuminate\Http\Request;
@@ -46,35 +47,9 @@ class CouponController extends Controller
         return view('admin.coupons.create');
     }
 
-    public function store(Request $request)
+    public function store(CouponRequest $request)
     {
-        $validated = $request->validate([
-            'code' => 'required|string|max:50|alpha_dash|unique:coupons,code',
-            'type' => 'required|in:percent,fixed',
-            'value' => 'required|integer|min:1',
-            'max_discount' => 'nullable|integer|min:0',
-            'min_order_amount' => 'required|integer|min:0',
-            'start_at' => 'nullable|date',
-            'end_at' => 'nullable|date|after_or_equal:start_at',
-            'usage_limit' => 'nullable|integer|min:0',
-            'status' => 'required|in:active,inactive',
-        ]);
-
-        $validated['code'] = strtoupper($validated['code']);
-
-        if ($validated['type'] === 'percent' && $validated['value'] > 100) {
-            return back()->withErrors(['value' => 'Phần trăm giảm không được quá 100%'])->withInput();
-        }
-
-        if ($validated['type'] === 'fixed' && $validated['value'] < 1000) {
-            return back()->withErrors(['value' => 'Số tiền giảm tối thiểu 1,000₫'])->withInput();
-        }
-
-        if (isset($validated['usage_limit']) && $validated['usage_limit'] !== null && $validated['usage_limit'] == 0) {
-            $validated['usage_limit'] = null;
-        }
-
-        Coupon::create($validated);
+        Coupon::create($request->couponData());
 
         return redirect()->route('admin.coupons.index')
             ->with('success', 'Tạo mã giảm giá thành công!');
@@ -85,35 +60,9 @@ class CouponController extends Controller
         return view('admin.coupons.edit', compact('coupon'));
     }
 
-    public function update(Request $request, Coupon $coupon)
+    public function update(CouponRequest $request, Coupon $coupon)
     {
-        $validated = $request->validate([
-            'code' => 'required|string|max:50|alpha_dash|unique:coupons,code,'.$coupon->id,
-            'type' => 'required|in:percent,fixed',
-            'value' => 'required|integer|min:1',
-            'max_discount' => 'nullable|integer|min:0',
-            'min_order_amount' => 'required|integer|min:0',
-            'start_at' => 'nullable|date',
-            'end_at' => 'nullable|date|after_or_equal:start_at',
-            'usage_limit' => 'nullable|integer|min:0',
-            'status' => 'required|in:active,inactive',
-        ]);
-
-        $validated['code'] = strtoupper($validated['code']);
-
-        if ($validated['type'] === 'percent' && $validated['value'] > 100) {
-            return back()->withErrors(['value' => 'Phần trăm giảm không được quá 100%'])->withInput();
-        }
-
-        if ($validated['type'] === 'fixed' && $validated['value'] < 1000) {
-            return back()->withErrors(['value' => 'Số tiền giảm tối thiểu 1,000₫'])->withInput();
-        }
-
-        if (isset($validated['usage_limit']) && $validated['usage_limit'] !== null && $validated['usage_limit'] == 0) {
-            $validated['usage_limit'] = null;
-        }
-
-        $coupon->update($validated);
+        $coupon->update($request->couponData());
 
         return redirect()->route('admin.coupons.index')
             ->with('success', 'Cập nhật mã giảm giá thành công!');

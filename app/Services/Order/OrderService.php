@@ -194,6 +194,48 @@ class OrderService extends BaseService
     }
 
     /**
+     * Admin đổi trạng thái đơn (web admin và Mobile API dùng chung): chặn mở lại đơn đã hủy, chặn
+     * xác nhận/giao đơn online chưa thanh toán; hủy thì hoàn kho; giao xong thì hoàn tất giới thiệu;
+     * đổi trạng thái thì ghi audit và gửi email cho khách.
+     *
+     * @throws OrderException
+     */
+    public function changeStatusByAdmin(Order $order, string $newStatus): Order
+    {
+        $oldStatus = $order->status;
+
+        if ($oldStatus === 'cancelled' && $newStatus !== 'cancelled') {
+            // Đơn đã hủy đã hoàn kho — mở lại sẽ hoàn kho 2 lần
+            throw new OrderException('Không thể mở lại đơn đã hủy.');
+        }
+
+        if ($order->payment_method !== 'cod'
+            && $order->payment_status !== 'paid'
+            && in_array($newStatus, ['confirmed', 'shipping', 'delivered'], true)) {
+            throw new OrderException('Đơn thanh toán online chưa được thanh toán — không thể xác nhận/giao hàng.');
+        }
+
+        if ($newStatus === 'cancelled') {
+            $this->cancelOrder($order, 'admin');
+        } elseif ($newStatus !== $oldStatus) {
+            $order->update(['status' => $newStatus]);
+
+            AuditService::log('order_status_changed', 'Order', $order->id, [
+                'from' => $oldStatus,
+                'to' => $newStatus,
+            ]);
+
+            if ($newStatus === 'delivered') {
+                $this->referralService->completeReferral($order);
+            }
+
+            $this->notifyStatusChanged($order, $oldStatus);
+        }
+
+        return $order->refresh();
+    }
+
+    /**
      * Báo giá cho trang xác nhận đơn: tính đúng như lúc đặt hàng (giá hiện hành của sản phẩm/biến thể,
      * mã giảm giá, phí ship theo tỉnh, VAT) nhưng không tạo đơn, không khóa dữ liệu.
      *
