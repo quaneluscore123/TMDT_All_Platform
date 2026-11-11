@@ -28,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -121,6 +122,7 @@ fun ProductDetailScreen(
     onCart: () -> Unit,
     onCheckout: () -> Unit,
     onReviews: (name: String, canReview: Boolean) -> Unit,
+    onAskAi: (question: String) -> Unit,
 ) {
     val vm = hiltViewModel<ProductDetailViewModel, ProductDetailViewModel.Factory>(key = "product-$slug") { it.create(slug) }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -157,6 +159,16 @@ fun ProductDetailScreen(
     }
 
     Scaffold(
+        floatingActionButton = {
+            if (product != null) {
+                // Hỏi trợ lý AI về đúng sản phẩm đang xem (size, chất liệu, phối đồ...)
+                androidx.compose.material3.ExtendedFloatingActionButton(
+                    onClick = { onAskAi("Tư vấn giúp mình sản phẩm \"${product.name}\": chất liệu, chọn size và cách phối đồ?") },
+                    icon = { Icon(Icons.Filled.Face, contentDescription = null) },
+                    text = { Text("Hỏi AI") },
+                )
+            }
+        },
         topBar = {
             BackTopBar(product?.name ?: "Sản phẩm", onBack) {
                 if (product != null) {
