@@ -21,12 +21,15 @@ import com.socialshop.app.data.remote.apiCall
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Điểm truy cập dữ liệu duy nhất cho UI. Giữ trạng thái phiên (người dùng, số món trong giỏ)
  * để thanh điều hướng và các màn hình cùng đọc.
  */
-class ShopRepository(
+@Singleton
+class ShopRepository @Inject constructor(
     private val api: ApiService,
     private val tokenStore: TokenStore,
 ) {

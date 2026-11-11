@@ -2,17 +2,15 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exceptions\OrderException;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Services\AuditService;
 use App\Services\Order\OrderService;
-use App\Services\Referral\ReferralService;
 use Illuminate\Http\Request;
 
 class OrderController extends Controller
 {
     public function __construct(
-        private ReferralService $referralService,
         private OrderService $orderService
     ) {}
 
@@ -53,39 +51,11 @@ class OrderController extends Controller
             'status' => 'required|in:pending,confirmed,shipping,delivered,cancelled',
         ]);
 
-        $oldStatus = $order->status;
-        $newStatus = $validated['status'];
-
-        if ($oldStatus === 'cancelled' && $newStatus !== 'cancelled') {
-            // Không cho reopen đơn đã hủy (đã hoàn kho) — tránh hoàn kho 2 lần
-            return $this->reject($request, 'Không thể mở lại đơn đã hủy.');
+        try {
+            $order = $this->orderService->changeStatusByAdmin($order, $validated['status']);
+        } catch (OrderException $e) {
+            return $this->reject($request, $e->getMessage());
         }
-
-        // Đơn thanh toán online chưa nhận tiền thì không được xác nhận/giao
-        if ($order->payment_method !== 'cod'
-            && $order->payment_status !== 'paid'
-            && in_array($newStatus, ['confirmed', 'shipping', 'delivered'], true)) {
-            return $this->reject($request, 'Đơn thanh toán online chưa được thanh toán — không thể xác nhận/giao hàng.');
-        }
-
-        if ($newStatus === 'cancelled') {
-            $this->orderService->cancelOrder($order, 'admin');
-        } elseif ($newStatus !== $oldStatus) {
-            $order->update(['status' => $newStatus]);
-
-            AuditService::log('order_status_changed', 'Order', $order->id, [
-                'from' => $oldStatus,
-                'to' => $newStatus,
-            ]);
-
-            if ($newStatus === 'delivered') {
-                $this->referralService->completeReferral($order);
-            }
-
-            $this->orderService->notifyStatusChanged($order, $oldStatus);
-        }
-
-        $order->refresh();
 
         if ($request->wantsJson()) {
             return response()->json([

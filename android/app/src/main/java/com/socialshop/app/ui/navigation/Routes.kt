@@ -21,3 +21,18 @@ import kotlinx.serialization.Serializable
 @Serializable data object ForgotPasswordRoute
 @Serializable data object EditProfileRoute
 @Serializable data object ChangePasswordRoute
+
+// Trợ lý AI
+@Serializable data class ChatRoute(val initialMessage: String? = null)
+
+// Quản trị (chỉ hiện với tài khoản role=admin; server vẫn kiểm tra quyền)
+@Serializable data object AdminDashboardRoute
+@Serializable data class AdminOrdersRoute(val status: String? = null)
+@Serializable data class AdminOrderDetailRoute(val id: Long)
+@Serializable data class AdminProductsRoute(val filter: String? = null)
+@Serializable data class AdminProductEditRoute(val id: Long)
+@Serializable data object AdminReviewsRoute
+@Serializable data object AdminUsersRoute
+@Serializable data object AdminCouponsRoute
+@Serializable data object AdminCouponCreateRoute
+@Serializable data object AdminTaxRoute

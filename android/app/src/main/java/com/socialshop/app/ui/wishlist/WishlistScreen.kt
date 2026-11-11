@@ -1,5 +1,8 @@
 package com.socialshop.app.ui.wishlist
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.socialshop.app.data.ShopRepository
 import com.socialshop.app.data.remote.Product
 import com.socialshop.app.ui.components.MessageBox
@@ -28,12 +30,12 @@ import com.socialshop.app.ui.components.ProductCard
 import com.socialshop.app.ui.components.StateContent
 import com.socialshop.app.ui.components.UiState
 import com.socialshop.app.ui.components.toUiState
-import com.socialshop.app.ui.navigation.repository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class WishlistViewModel(private val repo: ShopRepository) : ViewModel() {
+@HiltViewModel
+class WishlistViewModel @Inject constructor(private val repo: ShopRepository) : ViewModel() {
     private val _state = MutableStateFlow<UiState<List<Product>>>(UiState.Loading)
     val state = _state.asStateFlow()
     val token = repo.token
@@ -48,8 +50,7 @@ class WishlistViewModel(private val repo: ShopRepository) : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WishlistScreen(onProduct: (String) -> Unit, onLogin: () -> Unit) {
-    val repo = repository()
-    val vm: WishlistViewModel = viewModel { WishlistViewModel(repo) }
+    val vm: WishlistViewModel = hiltViewModel()
     val token by vm.token.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
 

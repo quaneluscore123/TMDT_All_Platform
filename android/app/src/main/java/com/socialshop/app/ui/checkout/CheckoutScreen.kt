@@ -1,5 +1,8 @@
 package com.socialshop.app.ui.checkout
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.socialshop.app.core.toVnd
 import com.socialshop.app.data.ShopRepository
 import com.socialshop.app.data.remote.ApiException
@@ -63,14 +65,14 @@ import com.socialshop.app.ui.components.LoadingBox
 import com.socialshop.app.ui.components.MessageBox
 import com.socialshop.app.ui.components.SummaryLine
 import com.socialshop.app.ui.navigation.LocalSnackbar
-import com.socialshop.app.ui.navigation.repository
 import com.socialshop.app.ui.theme.SuccessGreen
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class CheckoutViewModel(private val repo: ShopRepository) : ViewModel() {
+@HiltViewModel
+class CheckoutViewModel @Inject constructor(private val repo: ShopRepository) : ViewModel() {
     var name by mutableStateOf(repo.user.value?.name.orEmpty())
     var phone by mutableStateOf(repo.user.value?.phone.orEmpty())
     var address by mutableStateOf(repo.user.value?.address.orEmpty())
@@ -183,8 +185,7 @@ class CheckoutViewModel(private val repo: ShopRepository) : ViewModel() {
 
 @Composable
 fun CheckoutScreen(onBack: () -> Unit, onPlaced: (orderId: Long, paymentUrl: String?) -> Unit) {
-    val repo = repository()
-    val vm: CheckoutViewModel = viewModel { CheckoutViewModel(repo) }
+    val vm: CheckoutViewModel = hiltViewModel()
     val config by vm.config.collectAsStateWithLifecycle()
     val cart by vm.cart.collectAsStateWithLifecycle()
     val quote by vm.quote.collectAsStateWithLifecycle()

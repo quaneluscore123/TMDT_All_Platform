@@ -17,6 +17,8 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
@@ -64,6 +66,8 @@ fun AccountScreen(
     onOrders: () -> Unit,
     onEditProfile: () -> Unit,
     onChangePassword: () -> Unit,
+    onAdmin: () -> Unit,
+    onChat: () -> Unit,
 ) {
     val repo = repository()
     val token by repo.token.collectAsStateWithLifecycle()
@@ -112,8 +116,16 @@ fun AccountScreen(
                     }
                 }
 
+                if (user?.role == "admin") {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                        MenuRow(Icons.Filled.Settings, "Quản trị cửa hàng", onAdmin)
+                    }
+                }
+
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     MenuRow(Icons.AutoMirrored.Filled.List, "Đơn hàng của tôi", onOrders)
+                    HorizontalDivider()
+                    MenuRow(Icons.Filled.Face, "Trợ lý AI", onChat)
                     HorizontalDivider()
                     MenuRow(Icons.Filled.Edit, "Thông tin cá nhân", onEditProfile)
                     HorizontalDivider()

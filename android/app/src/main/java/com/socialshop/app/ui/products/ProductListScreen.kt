@@ -1,5 +1,10 @@
 package com.socialshop.app.ui.products
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,7 +47,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.socialshop.app.data.ShopRepository
 import com.socialshop.app.data.remote.Category
 import com.socialshop.app.data.remote.Product
@@ -50,7 +54,6 @@ import com.socialshop.app.ui.components.BackTopBar
 import com.socialshop.app.ui.components.LoadingBox
 import com.socialshop.app.ui.components.MessageBox
 import com.socialshop.app.ui.components.ProductCard
-import com.socialshop.app.ui.navigation.repository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -77,11 +80,17 @@ data class ProductListState(
     val canLoadMore get() = page < lastPage
 }
 
-class ProductListViewModel(
+@HiltViewModel(assistedFactory = ProductListViewModel.Factory::class)
+class ProductListViewModel @AssistedInject constructor(
     private val repo: ShopRepository,
-    initialSearch: String?,
-    initialCategory: Long?,
+    @Assisted("search") initialSearch: String?,
+    @Assisted("category") initialCategory: Long?,
 ) : ViewModel() {
+    @AssistedFactory
+    interface Factory {
+        fun create(@Assisted("search") initialSearch: String?, @Assisted("category") initialCategory: Long?): ProductListViewModel
+    }
+
     var search by mutableStateOf(initialSearch)
         private set
     var categoryId by mutableStateOf(initialCategory)
@@ -151,9 +160,8 @@ fun ProductListScreen(
     onBack: () -> Unit,
     onProduct: (String) -> Unit,
 ) {
-    val repo = repository()
-    val vm: ProductListViewModel = viewModel(key = "products-$initialSearch-$categoryId") {
-        ProductListViewModel(repo, initialSearch, categoryId)
+    val vm = hiltViewModel<ProductListViewModel, ProductListViewModel.Factory>(key = "products-$initialSearch-$categoryId") {
+        it.create(initialSearch, categoryId)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()

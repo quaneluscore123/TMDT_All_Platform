@@ -1,5 +1,10 @@
 package com.socialshop.app.ui.orders
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.socialshop.app.core.toDisplayDate
 import com.socialshop.app.core.toVnd
 import com.socialshop.app.data.ShopRepository
@@ -45,13 +49,21 @@ import com.socialshop.app.ui.components.UiState
 import com.socialshop.app.ui.components.clickableRow
 import com.socialshop.app.ui.components.toUiState
 import com.socialshop.app.ui.navigation.LocalSnackbar
-import com.socialshop.app.ui.navigation.repository
 import com.socialshop.app.ui.theme.SuccessGreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class OrderDetailViewModel(private val repo: ShopRepository, private val orderId: Long) : ViewModel() {
+@HiltViewModel(assistedFactory = OrderDetailViewModel.Factory::class)
+class OrderDetailViewModel @AssistedInject constructor(
+    private val repo: ShopRepository,
+    @Assisted private val orderId: Long,
+) : ViewModel() {
+    @AssistedFactory
+    interface Factory {
+        fun create(orderId: Long): OrderDetailViewModel
+    }
+
     private val _state = MutableStateFlow<UiState<Order>>(UiState.Loading)
     val state = _state.asStateFlow()
 
@@ -70,8 +82,7 @@ class OrderDetailViewModel(private val repo: ShopRepository, private val orderId
 
 @Composable
 fun OrderDetailScreen(orderId: Long, justPlaced: Boolean, onBack: () -> Unit, onProduct: (String) -> Unit) {
-    val repo = repository()
-    val vm: OrderDetailViewModel = viewModel(key = "order-$orderId") { OrderDetailViewModel(repo, orderId) }
+    val vm = hiltViewModel<OrderDetailViewModel, OrderDetailViewModel.Factory>(key = "order-$orderId") { it.create(orderId) }
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = LocalSnackbar.current
     val scope = rememberCoroutineScope()

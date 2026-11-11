@@ -3,6 +3,7 @@ package com.socialshop.app.ui.navigation
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -10,6 +11,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -36,9 +38,22 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.socialshop.app.ShopApp
 import com.socialshop.app.data.ShopRepository
+import com.socialshop.app.data.remote.AdminProduct
+import com.socialshop.app.data.remote.NetworkModule
 import com.socialshop.app.ui.account.AccountScreen
+import com.socialshop.app.ui.admin.AdminCouponCreateScreen
+import com.socialshop.app.ui.admin.AdminCouponsScreen
+import com.socialshop.app.ui.admin.AdminDashboardScreen
+import com.socialshop.app.ui.admin.AdminNav
+import com.socialshop.app.ui.admin.AdminOrderDetailScreen
+import com.socialshop.app.ui.admin.AdminOrdersScreen
+import com.socialshop.app.ui.admin.AdminProductEditScreen
+import com.socialshop.app.ui.admin.AdminProductsScreen
+import com.socialshop.app.ui.admin.AdminReviewsScreen
+import com.socialshop.app.ui.admin.AdminTaxScreen
+import com.socialshop.app.ui.admin.AdminUsersScreen
+import com.socialshop.app.ui.chat.ChatScreen
 import com.socialshop.app.ui.account.ChangePasswordScreen
 import com.socialshop.app.ui.account.EditProfileScreen
 import com.socialshop.app.ui.auth.ForgotPasswordScreen
@@ -54,13 +69,21 @@ import com.socialshop.app.ui.product.ProductDetailScreen
 import com.socialshop.app.ui.product.ReviewsScreen
 import com.socialshop.app.ui.products.ProductListScreen
 import com.socialshop.app.ui.wishlist.WishlistScreen
+import com.socialshop.app.di.RepositoryEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import kotlin.reflect.KClass
 
 /** Snackbar dùng chung để mọi màn hình báo kết quả thao tác. */
+private const val EDITED_PRODUCT_KEY = "admin_edited_product"
+private const val COUPON_CREATED_KEY = "admin_coupon_created"
+
 val LocalSnackbar = staticCompositionLocalOf<SnackbarHostState> { error("SnackbarHostState chưa được cung cấp") }
 
 @Composable
-fun repository(): ShopRepository = (LocalContext.current.applicationContext as ShopApp).repository
+fun repository(): ShopRepository {
+    val context = LocalContext.current.applicationContext
+    return remember(context) { EntryPointAccessors.fromApplication(context, RepositoryEntryPoint::class.java).shopRepository() }
+}
 
 private data class TopTab(val route: Any, val routeClass: KClass<*>, val label: String, val icon: ImageVector)
 
@@ -94,9 +117,20 @@ fun SocialShopRoot() {
     val destination = backStack?.destination
     val showBottomBar = tabs.any { tab -> destination?.hierarchy?.any { it.hasRoute(tab.routeClass) } == true }
 
+    val onHome = destination?.hierarchy?.any { it.hasRoute(HomeRoute::class) } == true
+
     CompositionLocalProvider(LocalSnackbar provides snackbar) {
         Scaffold(
             snackbarHost = { SnackbarHost(snackbar) },
+            floatingActionButton = {
+                if (onHome) {
+                    ExtendedFloatingActionButton(
+                        onClick = { nav.navigate(ChatRoute()) },
+                        icon = { Icon(Icons.Filled.Face, contentDescription = null) },
+                        text = { Text("Hỏi AI") },
+                    )
+                }
+            },
             bottomBar = {
                 if (showBottomBar) {
                     NavigationBar {
@@ -161,6 +195,8 @@ fun SocialShopRoot() {
                         onOrders = { nav.navigate(OrdersRoute) },
                         onEditProfile = { nav.navigate(EditProfileRoute) },
                         onChangePassword = { nav.navigate(ChangePasswordRoute) },
+                        onAdmin = { nav.navigate(AdminDashboardRoute) },
+                        onChat = { nav.navigate(ChatRoute()) },
                     )
                 }
                 composable<ProductDetailRoute> { entry ->
@@ -173,6 +209,7 @@ fun SocialShopRoot() {
                         onCart = { nav.openTab(CartRoute) },
                         onCheckout = { nav.navigate(CheckoutRoute) },
                         onReviews = { name, canReview -> nav.navigate(ReviewsRoute(route.slug, name, canReview)) },
+                        onAskAi = { nav.navigate(ChatRoute(it)) },
                     )
                 }
                 composable<ReviewsRoute> { entry ->
@@ -227,6 +264,86 @@ fun SocialShopRoot() {
                 composable<ForgotPasswordRoute> { ForgotPasswordScreen(onBack = { nav.popBackStack() }) }
                 composable<EditProfileRoute> { EditProfileScreen(onBack = { nav.popBackStack() }) }
                 composable<ChangePasswordRoute> { ChangePasswordScreen(onBack = { nav.popBackStack() }) }
+
+                // ─── Trợ lý AI ───────────────────────────────────────────────────
+                composable<ChatRoute> { entry ->
+                    ChatScreen(initialMessage = entry.toRoute<ChatRoute>().initialMessage, onBack = { nav.popBackStack() })
+                }
+
+                // ─── Quản trị ────────────────────────────────────────────────────
+                composable<AdminDashboardRoute> {
+                    AdminDashboardScreen(
+                        onBack = { nav.popBackStack() },
+                        nav = AdminNav(
+                            orders = { nav.navigate(AdminOrdersRoute(it)) },
+                            order = { nav.navigate(AdminOrderDetailRoute(it)) },
+                            products = { nav.navigate(AdminProductsRoute(it)) },
+                            reviews = { nav.navigate(AdminReviewsRoute) },
+                            users = { nav.navigate(AdminUsersRoute) },
+                            coupons = { nav.navigate(AdminCouponsRoute) },
+                            tax = { nav.navigate(AdminTaxRoute) },
+                        ),
+                    )
+                }
+                composable<AdminOrdersRoute> { entry ->
+                    AdminOrdersScreen(
+                        initialStatus = entry.toRoute<AdminOrdersRoute>().status,
+                        onBack = { nav.popBackStack() },
+                        onOrder = { nav.navigate(AdminOrderDetailRoute(it)) },
+                    )
+                }
+                composable<AdminOrderDetailRoute> { entry ->
+                    AdminOrderDetailScreen(entry.toRoute<AdminOrderDetailRoute>().id, onBack = { nav.popBackStack() })
+                }
+                composable<AdminProductsRoute> { entry ->
+                    // Màn sửa trả sản phẩm đã lưu (JSON) qua savedStateHandle để cập nhật đúng dòng trong danh sách
+                    val editedJson by entry.savedStateHandle.getStateFlow<String?>(EDITED_PRODUCT_KEY, null).collectAsStateWithLifecycle()
+                    val edited = remember(editedJson) {
+                        editedJson?.let { runCatching { NetworkModule.json.decodeFromString(AdminProduct.serializer(), it) }.getOrNull() }
+                    }
+                    AdminProductsScreen(
+                        initialFilter = entry.toRoute<AdminProductsRoute>().filter,
+                        edited = edited,
+                        onBack = { nav.popBackStack() },
+                        onEdit = { nav.navigate(AdminProductEditRoute(it)) },
+                    )
+                }
+                composable<AdminProductEditRoute> { entry ->
+                    AdminProductEditScreen(
+                        productId = entry.toRoute<AdminProductEditRoute>().id,
+                        onBack = { nav.popBackStack() },
+                        onSaved = { product ->
+                            nav.previousBackStackEntry?.savedStateHandle?.set(
+                                EDITED_PRODUCT_KEY,
+                                NetworkModule.json.encodeToString(AdminProduct.serializer(), product),
+                            )
+                            nav.popBackStack()
+                        },
+                    )
+                }
+                composable<AdminReviewsRoute> { AdminReviewsScreen(onBack = { nav.popBackStack() }) }
+                composable<AdminUsersRoute> { AdminUsersScreen(onBack = { nav.popBackStack() }) }
+                composable<AdminCouponsRoute> { entry ->
+                    val created by entry.savedStateHandle.getStateFlow(COUPON_CREATED_KEY, false).collectAsStateWithLifecycle()
+                    AdminCouponsScreen(
+                        created = created,
+                        onBack = { nav.popBackStack() },
+                        onCreate = {
+                            entry.savedStateHandle[COUPON_CREATED_KEY] = false
+                            nav.navigate(AdminCouponCreateRoute)
+                        },
+                    )
+                }
+                composable<AdminCouponCreateRoute> {
+                    AdminCouponCreateScreen(
+                        onBack = { nav.popBackStack() },
+                        onCreated = {
+                            nav.previousBackStackEntry?.savedStateHandle?.set(COUPON_CREATED_KEY, true)
+                            nav.popBackStack()
+                        },
+                    )
+                }
+                composable<AdminTaxRoute> { AdminTaxScreen(onBack = { nav.popBackStack() }) }
             }
         }
     }
