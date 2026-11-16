@@ -1,6 +1,6 @@
 package com.socialshop.app.data
 
-import com.socialshop.app.data.local.TokenStore
+import com.socialshop.app.data.local.TokenStorage
 import com.socialshop.app.data.remote.AddToCartRequest
 import com.socialshop.app.data.remote.ApiService
 import com.socialshop.app.data.remote.AuthResponse
@@ -31,9 +31,12 @@ import javax.inject.Singleton
 @Singleton
 class ShopRepository @Inject constructor(
     private val api: ApiService,
-    private val tokenStore: TokenStore,
+    private val tokenStore: TokenStorage,
 ) {
     val token: StateFlow<String?> = tokenStore.token
+
+    /** Đã đọc xong token đã lưu (đọc bất đồng bộ khi mở app). */
+    val sessionReady: StateFlow<Boolean> = tokenStore.ready
 
     private val _user = MutableStateFlow<User?>(null)
     val user: StateFlow<User?> = _user.asStateFlow()
@@ -48,6 +51,7 @@ class ShopRepository @Inject constructor(
     // ─── Phiên đăng nhập ────────────────────────────────────────────────────────
 
     suspend fun restoreSession() {
+        tokenStore.awaitReady()
         if (!isLoggedIn) return
         apiCall { api.me().data }.onSuccess { _user.value = it }
         refreshCartCount()
