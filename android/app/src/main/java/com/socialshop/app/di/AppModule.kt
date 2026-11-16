@@ -2,6 +2,7 @@ package com.socialshop.app.di
 
 import android.content.Context
 import com.socialshop.app.data.ShopRepository
+import com.socialshop.app.data.local.TokenStorage
 import com.socialshop.app.data.local.TokenStore
 import com.socialshop.app.data.remote.AdminApiService
 import com.socialshop.app.data.remote.ApiService
@@ -16,6 +17,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import javax.inject.Qualifier
@@ -37,7 +40,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideTokenStore(@ApplicationContext context: Context, @ApplicationScope scope: CoroutineScope): TokenStore =
+    fun provideTokenStorage(@ApplicationContext context: Context, @ApplicationScope scope: CoroutineScope): TokenStorage =
         TokenStore(context, scope)
 
     @Provides
@@ -46,7 +49,11 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideOkHttp(tokenStore: TokenStore): OkHttpClient = NetworkModule.createOkHttp(tokenStore)
+    fun provideOkHttp(tokenStore: TokenStorage): OkHttpClient = NetworkModule.createOkHttp(tokenStore)
+
+    @Provides
+    @Singleton
+    fun provideApiBaseUrl(): HttpUrl = NetworkModule.apiBaseUrl.toHttpUrl()
 
     @Provides
     @Singleton

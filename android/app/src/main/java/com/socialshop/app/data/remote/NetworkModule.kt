@@ -1,7 +1,7 @@
 package com.socialshop.app.data.remote
 
 import com.socialshop.app.BuildConfig
-import com.socialshop.app.data.local.TokenStore
+import com.socialshop.app.data.local.TokenStorage
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
@@ -29,8 +29,10 @@ object NetworkModule {
     /** Gốc API, vd. http://10.0.2.2:8000/api/v1/ */
     val apiBaseUrl: String = BuildConfig.BASE_URL + "api/v1/"
 
-    fun createOkHttp(tokenStore: TokenStore): OkHttpClient {
+    fun createOkHttp(tokenStore: TokenStorage): OkHttpClient {
         val authInterceptor = Interceptor { chain ->
+            // Luồng nền của OkHttp: chờ đọc xong token đã lưu (tối đa 3 giây) để request đầu tiên không bị gửi như khách
+            tokenStore.awaitReadyBlocking(3_000)
             val token = tokenStore.currentToken
             val request = chain.request().newBuilder()
                 // Laravel trả lỗi dạng JSON (401/422) thay vì redirect sang trang HTML
@@ -57,8 +59,8 @@ object NetworkModule {
             .build()
     }
 
-    fun createRetrofit(client: OkHttpClient): Retrofit = Retrofit.Builder()
-        .baseUrl(apiBaseUrl)
+    fun createRetrofit(client: OkHttpClient, baseUrl: String = apiBaseUrl): Retrofit = Retrofit.Builder()
+        .baseUrl(baseUrl)
         .client(client)
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
         .build()

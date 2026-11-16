@@ -109,6 +109,8 @@ fun SocialShopRoot() {
     val token by repo.token.collectAsStateWithLifecycle()
     val cartCount by repo.cartCount.collectAsStateWithLifecycle()
 
+    val sessionReady by repo.sessionReady.collectAsStateWithLifecycle()
+
     LaunchedEffect(Unit) { repo.restoreSession() }
     // Token bị xóa (đăng xuất hoặc server trả 401) → dọn trạng thái người dùng
     LaunchedEffect(token) { if (token == null) repo.onSessionExpired() }
@@ -118,6 +120,9 @@ fun SocialShopRoot() {
     val showBottomBar = tabs.any { tab -> destination?.hierarchy?.any { it.hasRoute(tab.routeClass) } == true }
 
     val onHome = destination?.hierarchy?.any { it.hasRoute(HomeRoute::class) } == true
+
+    // Token đọc bất đồng bộ (vài ms): chờ xong mới hiện màn hình để không thoáng hiện trạng thái "chưa đăng nhập"
+    if (!sessionReady) return
 
     CompositionLocalProvider(LocalSnackbar provides snackbar) {
         Scaffold(

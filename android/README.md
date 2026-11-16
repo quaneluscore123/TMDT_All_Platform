@@ -26,12 +26,17 @@ App mua sắm native (Kotlin + Jetpack Compose, Material 3) dùng chung dữ li�
 ```
 app/src/main/java/com/socialshop/app/
 ├── ShopApp.kt, MainActivity.kt # @HiltAndroidApp / @AndroidEntryPoint
-├── di/AppModule.kt             # Hilt: OkHttp, Retrofit, ApiService, AdminApiService, TokenStore, Json
+├── di/                         # Hilt: AppModule (OkHttp, Retrofit, ApiService, AdminApiService, TokenStorage, Json),
+│                               #       CacheModule (Room database, HomeCache)
 ├── core/Format.kt              # định dạng tiền VND, ngày giờ, đổi URL localhost → host backend
 ├── data/
 │   ├── remote/                 # ApiService + AdminApiService (Retrofit), DTO (kotlinx.serialization, snake_case), xử lý lỗi
-│   ├── local/TokenStore.kt     # lưu token bằng DataStore
-│   ├── ShopRepository.kt       # dữ liệu phía khách, giữ phiên & số món trong giỏ
+│   ├── local/
+│   │   ├── TokenStorage.kt     # interface giữ token (unit test dùng bản giả)
+│   │   ├── TokenStore.kt       # DataStore, đọc bất đồng bộ, token được mã hóa
+│   │   ├── TokenCipher.kt      # AES-256-GCM với khóa trong Android Keystore
+│   │   └── cache/              # Room: bảng cache trang chủ (danh mục, nhóm, sản phẩm), DAO, HomeCache
+│   ├── ShopRepository.kt       # dữ liệu phía khách, giữ phiên & số món trong giỏ; trang chủ có fallback offline
 │   ├── AdminRepository.kt      # dữ liệu khu vực quản trị
 │   └── ChatRepository.kt       # đọc luồng SSE của trợ lý AI thành Flow<String>
 └── ui/                         # Compose: navigation (type-safe routes), theme, components, từng màn hình + ViewModel
@@ -40,6 +45,35 @@ app/src/main/java/com/socialshop/app/
 ```
 
 **Dependency injection:** dùng Hilt. ViewModel đánh dấu `@HiltViewModel` và lấy bằng `hiltViewModel()`. ViewModel cần tham số từ route (slug, id đơn...) dùng assisted injection: `hiltViewModel<VM, VM.Factory> { it.create(arg) }`.
+
+## Bảo mật phiên đăng nhập
+
+- Token Sanctum được **mã hóa AES-256-GCM** trước khi ghi vào DataStore. Khóa nằm trong **Android Keystore** (phần cứng bảo mật/TEE), không đọc ra được kể cả khi lấy được file dữ liệu của app.
+- Token của bản app cũ (lưu dạng rõ) được tự mã hóa lại ở lần mở đầu tiên, không phải đăng nhập lại.
+- Đọc token **bất đồng bộ** lúc mở app (không `runBlocking` trên luồng chính). Màn hình chờ đọc xong mới hiện; OkHttp chờ trên luồng nền để request đầu tiên không bị gửi như khách.
+- Server trả 401 (token bị thu hồi, tài khoản bị khóa) → app tự xóa token và quay về trạng thái khách.
+
+## Chế độ offline
+
+Trang chủ (danh mục, Flash Sale, các nhóm sản phẩm) được lưu vào **Room** mỗi lần tải thành công, chia thành các bảng `cached_categories`, `cached_sections`, `cached_products`, `cache_meta` và ghi trong một transaction. Mất mạng hoặc server lỗi 5xx thì app hiện bản lưu gần nhất kèm dòng "Không có kết nối — đang xem dữ liệu lưu lúc …". Kéo xuống để tải lại khi có mạng. Các thao tác cần server (giỏ hàng, đặt hàng, quản trị) vẫn báo lỗi mạng như bình thường.
+
+## Kiểm thử
+
+```bash
+cd android
+./gradlew testDebugUnitTest     # báo cáo: app/build/reports/tests/testDebugUnitTest/index.html
+```
+
+Unit test chạy trên JVM với **MockWebServer** đóng vai backend, trả JSON đúng định dạng API thật, nên kiểm tra luôn cả việc đọc JSON snake_case. Hiện có 19 test:
+
+| File | Kiểm tra |
+|---|---|
+| `ShopRepositoryTest` | lưu cache trang chủ; mất mạng → dùng cache; không có cache → báo lỗi; đăng nhập lưu token và gửi Bearer; 401 → xóa token |
+| `ChatRepositoryTest` | đọc luồng SSE từng đoạn, dừng ở `done`; gửi 20 lượt hội thoại gần nhất kèm token; lỗi 422 thành thông báo dễ đọc |
+| `AdminRepositoryTest` | parse dashboard (VAT, biểu đồ 7 ngày); lỗi đổi trạng thái đơn; bộ lọc sắp hết hàng |
+| `ViewModelTest` | admin đổi trạng thái đơn (thành công / bị từ chối); sửa sản phẩm (validate tại chỗ, gửi tồn từng biến thể); chat hiện câu trả lời stream / lỗi; trang chủ offline |
+
+CI (`.github/workflows/android.yml`) chạy unit test trước khi build APK.
 
 ## Chạy app
 
