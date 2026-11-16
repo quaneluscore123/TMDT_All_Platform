@@ -50,9 +50,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.socialshop.app.data.HomeData
 import com.socialshop.app.data.ShopRepository
 import com.socialshop.app.data.remote.Category
-import com.socialshop.app.data.remote.HomeResponse
 import com.socialshop.app.data.remote.Product
 import com.socialshop.app.ui.components.ProductCard
 import com.socialshop.app.ui.components.ProductImage
@@ -70,7 +70,7 @@ import java.time.OffsetDateTime
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(private val repo: ShopRepository) : ViewModel() {
-    private val _state = MutableStateFlow<UiState<HomeResponse>>(UiState.Loading)
+    private val _state = MutableStateFlow<UiState<HomeData>>(UiState.Loading)
     val state = _state.asStateFlow()
     private val _refreshing = MutableStateFlow(false)
     val refreshing = _refreshing.asStateFlow()
@@ -97,13 +97,15 @@ fun HomeScreen(
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         SearchHeader(onSearch)
-        StateContent(state, onRetry = { vm.load() }) { home ->
+        StateContent(state, onRetry = { vm.load() }) { data ->
+            val home = data.home
             PullToRefreshBox(isRefreshing = refreshing, onRefresh = { vm.load(pull = true) }) {
                 LazyColumn(
                     contentPadding = PaddingValues(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
+                    data.cachedAt?.let { savedAt -> item { OfflineBanner(savedAt) } }
                     if (home.categories.isNotEmpty()) {
                         item { CategoryStrip(home.categories, onCategory) }
                     }
@@ -125,6 +127,27 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
+
+/** Đang xem bản lưu offline (Room) vì không kết nối được máy chủ. */
+@Composable
+private fun OfflineBanner(savedAt: Long) {
+    val time = remember(savedAt) {
+        java.time.Instant.ofEpochMilli(savedAt).atZone(java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM"))
+    }
+    androidx.compose.material3.Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    ) {
+        Text(
+            "Không có kết nối — đang xem dữ liệu lưu lúc $time. Kéo xuống để thử tải lại.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(12.dp),
+        )
     }
 }
 

@@ -1,6 +1,9 @@
 package com.socialshop.app.data
 
 import com.socialshop.app.data.local.TokenStorage
+import com.socialshop.app.data.local.cache.HomeCache
+import com.socialshop.app.data.remote.ApiException
+import com.socialshop.app.data.remote.HomeResponse
 import com.socialshop.app.data.remote.AddToCartRequest
 import com.socialshop.app.data.remote.ApiService
 import com.socialshop.app.data.remote.AuthResponse
@@ -32,6 +35,7 @@ import javax.inject.Singleton
 class ShopRepository @Inject constructor(
     private val api: ApiService,
     private val tokenStore: TokenStorage,
+    private val homeCache: HomeCache,
 ) {
     val token: StateFlow<String?> = tokenStore.token
 
@@ -95,7 +99,26 @@ class ShopRepository @Inject constructor(
 
     // ─── Danh mục & sản phẩm ──────────────────────────────────────────────────────
 
-    suspend fun home() = apiCall { api.home() }
+    /**
+     * Trang chủ: lấy từ server rồi lưu cache Room. Mất mạng / server lỗi → trả bản cache gần nhất
+     * kèm thời điểm lưu để UI báo đang xem dữ liệu offline.
+     */
+    suspend fun home(): Result<HomeData> {
+        val remote = apiCall { api.home() }
+        remote.onSuccess { home ->
+            runCatching { homeCache.save(home) }
+            return Result.success(HomeData(home, cachedAt = null))
+        }
+
+        val error = remote.exceptionOrNull()
+        val offline = error is ApiException && (error.code == 0 || error.code >= 500)
+        if (offline) {
+            runCatching { homeCache.load() }.getOrNull()?.let { cached ->
+                return Result.success(HomeData(cached.home, cachedAt = cached.savedAt))
+            }
+        }
+        return Result.failure(error ?: ApiException("Đã có lỗi xảy ra."))
+    }
 
     suspend fun categories() = apiCall { api.categories().data }
 
@@ -154,3 +177,6 @@ class ShopRepository @Inject constructor(
 
     suspend fun toggleWishlist(productId: Long) = apiCall { api.toggleWishlist(productId) }
 }
+
+/** Dữ liệu trang chủ; [cachedAt] khác null khi đang hiện bản cache offline (epoch millis lúc lưu). */
+data class HomeData(val home: HomeResponse, val cachedAt: Long?)
