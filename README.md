@@ -105,7 +105,7 @@ php artisan test                 # SQLite in-memory, không cần MySQL
 vendor/bin/pint --test           # kiểm tra code style
 ```
 
-CI (GitHub Actions, `.github/workflows/tests.yml`) chạy Pint và toàn bộ test trên PHP 8.2 và 8.4, cùng test của microservice (`cd services/ai-service && npm test`). `.github/workflows/android.yml` build APK debug + release mỗi khi thư mục `android/` thay đổi.
+CI (GitHub Actions, `.github/workflows/tests.yml`) chạy Pint và toàn bộ test trên PHP 8.2 và 8.4, cùng test của microservice (`cd services/ai-service && npm test`). `.github/workflows/android.yml` chạy 19 unit test của app Android (`./gradlew testDebugUnitTest`) rồi build APK debug + release mỗi khi thư mục `android/` thay đổi.
 
 ## Mobile API & app Android
 
