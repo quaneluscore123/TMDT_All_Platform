@@ -16,6 +16,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -39,11 +40,12 @@ private data class ChatRequest(val message: String, val history: List<ChatTurn>)
 class ChatRepository @Inject constructor(
     private val client: OkHttpClient,
     private val json: Json,
+    private val apiBaseUrl: HttpUrl,
 ) {
     fun ask(message: String, history: List<ChatTurn>): Flow<String> = flow {
         val body = json.encodeToString(ChatRequest.serializer(), ChatRequest(message, history.takeLast(20)))
         val request = Request.Builder()
-            .url(NetworkModule.apiBaseUrl + "chat")
+            .url(apiBaseUrl.resolve("chat")!!)
             .header("Accept", "text/event-stream")
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
